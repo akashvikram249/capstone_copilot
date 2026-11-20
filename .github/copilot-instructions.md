@@ -7,4 +7,4 @@
 - Preserve test reports when deleting test cases; maintain unique test case IDs.
 - GitHub Actions must remain read-only and use Java 17.
 - For cross-phase work, follow [SDLC-PIPELINE.md](../SDLC-PIPELINE.md) and use SDLC Orchestrator with its phase specialists, matching prompts, and skills.
-- Pause for human approval at the pipeline gates; never commit, push, deploy, or open a PR without explicit approval.
+- Pause for human approval at the pipeline gates; never commit, push, deploy, or open a PR without explicit approval. Once the final gate approves a story's PR, the PR Preparation Agent raises it via `python3 scripts/pr/raise_pr.py --approved` and never with raw git or `gh` commands.

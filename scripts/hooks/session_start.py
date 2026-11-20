@@ -39,7 +39,7 @@ def main() -> int:
     print("- Pipeline guide: SDLC-PIPELINE.md")
     print("- Orchestrator: select “SDLC Orchestrator” in Copilot Chat.")
     print("- Follow the approved phase and pause at human approval gates.")
-    print("- Do not commit, push, deploy, or open a PR without explicit approval.")
+    print("- Do not commit, push, deploy, or open a PR without explicit approval; the final-gate approval lets the PR agent raise the PR via scripts/pr/raise_pr.py.")
     return 0
 
 
