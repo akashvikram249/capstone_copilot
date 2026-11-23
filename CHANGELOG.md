@@ -1,5 +1,9 @@
 # Changelog
 
+## Run statistics
+
+- Add `GET /api/stats` for process-local total, in-progress, passed, and failed run counts.
+
 ## Claude Code SDLC agents
 
 - Add Claude Code subagents for each SDLC phase under `.claude/agents/` and an `/sdlc` orchestrator command under `.claude/skills/sdlc/`, reusing the existing phase skills and the guarded PR script.

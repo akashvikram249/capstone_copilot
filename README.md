@@ -43,6 +43,17 @@ mvn test
 
 The tests cover execution state transitions, server endpoints, validation errors, missing runs, and static page delivery. GitHub Actions runs `mvn verify` for pushes to `main` and pull requests.
 
+## Run statistics
+
+`GET /api/stats` returns process-local aggregate counts for runs on the current server:
+
+- `totalRuns`: runs admitted by `POST /api/runs`
+- `inProgress`: admitted runs that have not reached a terminal state
+- `passed`: runs that completed as Passed
+- `failed`: runs that completed as Failed
+
+The endpoint returns HTTP `200` with exactly these four integer fields. Counts reset when the server process restarts and are not persisted or browser-local. Unsupported methods return HTTP `405` with `Allow: GET`.
+
 ## Project guide
 
 - [requirements.md](requirements.md) — user story and acceptance criteria

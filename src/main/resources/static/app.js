@@ -3,6 +3,8 @@
 const CASES_KEY = "caseflow.testCases.v1";
 const REPORTS_KEY = "caseflow.executionReports.v1";
 const SESSION_KEY = "caseflow.demoUser";
+const REPORT_CSV_HEADERS = ["Case ID", "Test Case", "Status", "Duration (ms)", "Executed At", "Failure Details"];
+const REPORT_CSV_FILENAME = "caseflow-reports.csv";
 const seedCases = [
   {
     id: "TC-101",
@@ -249,11 +251,86 @@ function formatDuration(milliseconds) {
   return seconds < 1 ? `${Math.round(milliseconds)} ms` : `${seconds.toFixed(1)} sec`;
 }
 
+function getVisibleReports() {
+  const filter = $("#report-status-filter");
+  if (state.reportsDataInvalid || !filter) return [];
+  return filter.value === "All"
+    ? state.reports
+    : state.reports.filter(report => report.status === filter.value);
+}
+
+function csvField(value) {
+  const field = String(value ?? "");
+  return /[",\r\n]/.test(field) ? `"${field.replace(/"/g, '""')}"` : field;
+}
+
+function serializeReportsCsv(reports) {
+  const rows = reports.map(report => [
+    report.caseId,
+    report.title,
+    report.status,
+    report.durationMs,
+    report.timestamp,
+    report.failureDetails
+  ]);
+  return [REPORT_CSV_HEADERS, ...rows]
+    .map(row => row.map(csvField).join(","))
+    .join("\r\n");
+}
+
+function exportVisibleReports() {
+  const reports = getVisibleReports();
+  if (!reports.length) return;
+
+  let objectUrl = null;
+  let downloadLink = null;
+  const cleanup = () => {
+    if (downloadLink) {
+      try {
+        downloadLink.remove();
+      } catch (error) {
+        console.error("Could not remove the temporary CSV download link.", error);
+      }
+      downloadLink = null;
+    }
+    if (objectUrl) {
+      const url = objectUrl;
+      objectUrl = null;
+      try {
+        URL.revokeObjectURL(url);
+      } catch (error) {
+        console.error("Could not release the temporary CSV download URL.", error);
+      }
+    }
+  };
+
+  try {
+    const csv = serializeReportsCsv(reports);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    objectUrl = URL.createObjectURL(blob);
+    downloadLink = document.createElement("a");
+    downloadLink.href = objectUrl;
+    downloadLink.download = REPORT_CSV_FILENAME;
+    downloadLink.hidden = true;
+    document.body.append(downloadLink);
+    downloadLink.click();
+    setTimeout(cleanup, 1000);
+  } catch (error) {
+    cleanup();
+    console.error("Could not export execution reports as CSV.", error);
+    showToast("Could not create the CSV download. Try again; your saved reports were not changed.", true);
+  }
+}
+
 function renderReports(announce = false) {
   const filter = $("#report-status-filter");
   const announcement = $("#report-announcement");
+  const exportButton = $("#export-reports-button");
+  const exportHelp = $("#export-reports-help");
   if (state.reportsDataInvalid) {
     filter.disabled = true;
+    exportButton.disabled = true;
+    exportHelp.textContent = "Export is unavailable because the saved report data is invalid. Check or restore it, then reload.";
     $("#report-count").textContent = "0";
     $("#reports-table").innerHTML = `<div class="empty-state report-data-error"><span class="empty-icon">!</span>
       <strong>Saved report data is not a list</strong>
@@ -263,9 +340,11 @@ function renderReports(announce = false) {
   }
 
   filter.disabled = false;
-  const visibleReports = filter.value === "All"
-    ? state.reports
-    : state.reports.filter(report => report.status === filter.value);
+  const visibleReports = getVisibleReports();
+  exportButton.disabled = visibleReports.length === 0;
+  exportHelp.textContent = visibleReports.length
+    ? "Downloads the reports currently shown; saved reports are unchanged."
+    : "No visible reports to export.";
   $("#report-count").textContent = visibleReports.length;
   if (!state.reports.length) {
     $("#reports-table").innerHTML = `<div class="empty-state"><span class="empty-icon">◷</span>
@@ -492,6 +571,7 @@ $("#module-filter").addEventListener("change", renderCases);
 $("#priority-filter").addEventListener("change", renderCases);
 $("#status-filter").addEventListener("change", renderCases);
 $("#report-status-filter").addEventListener("change", () => renderReports(true));
+$("#export-reports-button").addEventListener("click", exportVisibleReports);
 $("#logout-button").addEventListener("click", () => {
   sessionStorage.removeItem(SESSION_KEY);
   $("#app-shell").classList.add("hidden");
