@@ -6,6 +6,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
@@ -19,11 +20,22 @@ public final class ExecutionService implements AutoCloseable {
             String timestamp,
             String failureDetails) {}
 
+    public record StatsSnapshot(
+            int totalRuns,
+            int inProgress,
+            int passed,
+            int failed) {}
+
     private static final String FAILURE_DETAILS =
             "Simulated UI assertion failed. Review the test steps and expected result.";
 
     private final Duration runDuration;
     private final ConcurrentMap<String, Run> runs = new ConcurrentHashMap<>();
+    private final Object lifecycleLock = new Object();
+    private int totalRuns;
+    private int inProgress;
+    private int passed;
+    private int failed;
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(task -> {
         Thread thread = new Thread(task, "demo-test-runner");
         thread.setDaemon(true);
@@ -50,15 +62,59 @@ public final class ExecutionService implements AutoCloseable {
 
         String id = UUID.randomUUID().toString();
         Run run = new Run(id, cleanCaseId, cleanTitle, outcome, Instant.now(), System.nanoTime());
-        runs.put(id, run);
-        scheduler.schedule(() -> run.completedAtNanos = System.nanoTime(),
-                runDuration.toMillis(), TimeUnit.MILLISECONDS);
+        synchronized (lifecycleLock) {
+            try {
+                scheduler.schedule(() -> complete(run), runDuration.toMillis(), TimeUnit.MILLISECONDS);
+            } catch (RejectedExecutionException error) {
+                throw error;
+            }
+            runs.put(id, run);
+            totalRuns++;
+            inProgress++;
+            assertInvariant();
+        }
         return run.toResult();
     }
 
     public RunResult find(String id) {
         Run run = runs.get(id);
         return run == null ? null : run.toResult();
+    }
+
+    public StatsSnapshot stats() {
+        synchronized (lifecycleLock) {
+            assertInvariant();
+            return new StatsSnapshot(totalRuns, inProgress, passed, failed);
+        }
+    }
+
+    void complete(String id) {
+        Run run = runs.get(id);
+        if (run != null) {
+            complete(run);
+        }
+    }
+
+    private void complete(Run run) {
+        synchronized (lifecycleLock) {
+            if (run.completedAtNanos != 0) {
+                return;
+            }
+            run.completedAtNanos = System.nanoTime();
+            inProgress--;
+            if ("pass".equals(run.outcome)) {
+                passed++;
+            } else {
+                failed++;
+            }
+            assertInvariant();
+        }
+    }
+
+    private void assertInvariant() {
+        if (totalRuns != inProgress + passed + failed) {
+            throw new IllegalStateException("Execution statistics invariant violated.");
+        }
     }
 
     private static String requireText(String value, String label, int maxLength) {

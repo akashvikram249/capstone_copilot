@@ -73,6 +73,11 @@ public final class DashboardServer implements AutoCloseable {
                 return;
             }
 
+            if (path.equals("/api/stats")) {
+                handleStats(exchange);
+                return;
+            }
+
             if (path.startsWith("/api/runs/")) {
                 handleGetRun(exchange, path.substring("/api/runs/".length()));
                 return;
@@ -106,6 +111,15 @@ public final class DashboardServer implements AutoCloseable {
         ExecutionService.RunResult result = executionService.start(
                 form.get("caseId"), form.get("title"), form.get("outcome"));
         sendJson(exchange, 202, jsonRun(result));
+    }
+
+    private void handleStats(HttpExchange exchange) throws IOException {
+        if (!methodIs(exchange, "GET")) {
+            sendMethodNotAllowed(exchange, "GET");
+            return;
+        }
+        ExecutionService.StatsSnapshot stats = executionService.stats();
+        sendJson(exchange, 200, jsonStats(stats));
     }
 
     private void handleGetRun(HttpExchange exchange, String id) throws IOException {
@@ -178,6 +192,13 @@ public final class DashboardServer implements AutoCloseable {
                 + ",\"durationMs\":" + result.durationMs()
                 + ",\"timestamp\":" + quote(result.timestamp())
                 + ",\"failureDetails\":" + quote(result.failureDetails()) + "}";
+    }
+
+    private static String jsonStats(ExecutionService.StatsSnapshot stats) {
+        return "{\"totalRuns\":" + stats.totalRuns()
+                + ",\"inProgress\":" + stats.inProgress()
+                + ",\"passed\":" + stats.passed()
+                + ",\"failed\":" + stats.failed() + "}";
     }
 
     private static String jsonError(String message) {

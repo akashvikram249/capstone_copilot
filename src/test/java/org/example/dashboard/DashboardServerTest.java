@@ -16,6 +16,77 @@ class DashboardServerTest {
     private final HttpClient client = HttpClient.newHttpClient();
 
     @Test
+    void statsReturnsFreshAndLifecycleDrivenExactJson() throws Exception {
+        try (ExecutionService execution = new ExecutionService(Duration.ofMillis(40));
+             DashboardServer server = new DashboardServer(0, execution)) {
+            server.start();
+
+            HttpResponse<String> fresh = get(server, "/api/stats");
+            assertEquals(200, fresh.statusCode());
+            assertEquals("application/json; charset=utf-8",
+                    fresh.headers().firstValue("Content-Type").orElse(""));
+            assertEquals("no-store", fresh.headers().firstValue("Cache-Control").orElse(""));
+            assertEquals("nosniff", fresh.headers().firstValue("X-Content-Type-Options").orElse(""));
+            assertEquals("{\"totalRuns\":0,\"inProgress\":0,\"passed\":0,\"failed\":0}", fresh.body());
+
+            URI base = URI.create("http://localhost:" + server.port());
+            HttpResponse<String> passed = client.send(
+                    HttpRequest.newBuilder(base.resolve("/api/runs"))
+                            .header("Content-Type", "application/x-www-form-urlencoded")
+                            .POST(HttpRequest.BodyPublishers.ofString("caseId=TC-1&title=Sign+in&outcome=pass"))
+                            .build(),
+                    HttpResponse.BodyHandlers.ofString());
+            assertEquals(202, passed.statusCode());
+
+            HttpResponse<String> inProgress = get(server, "/api/stats");
+            assertEquals("{\"totalRuns\":1,\"inProgress\":1,\"passed\":0,\"failed\":0}",
+                    inProgress.body());
+
+            Thread.sleep(100);
+            HttpResponse<String> complete = get(server, "/api/stats");
+            assertEquals("{\"totalRuns\":1,\"inProgress\":0,\"passed\":1,\"failed\":0}",
+                    complete.body());
+        }
+    }
+
+    @Test
+    void statsReturnsFailedCountAndRejectsEveryNonGetWithoutMutation() throws Exception {
+        try (ExecutionService execution = new ExecutionService(Duration.ZERO);
+             DashboardServer server = new DashboardServer(0, execution)) {
+            server.start();
+            URI base = URI.create("http://localhost:" + server.port());
+
+            client.send(
+                    HttpRequest.newBuilder(base.resolve("/api/runs"))
+                            .header("Content-Type", "application/x-www-form-urlencoded")
+                            .POST(HttpRequest.BodyPublishers.ofString("caseId=TC-2&title=Checkout&outcome=fail"))
+                            .build(),
+                    HttpResponse.BodyHandlers.ofString());
+            Thread.sleep(30);
+
+            assertEquals("{\"totalRuns\":1,\"inProgress\":0,\"passed\":0,\"failed\":1}",
+                    get(server, "/api/stats").body());
+
+            for (String method : new String[]{"POST", "HEAD", "PUT", "DELETE", "PATCH", "OPTIONS"}) {
+                HttpResponse<String> rejected = client.send(
+                        HttpRequest.newBuilder(base.resolve("/api/stats"))
+                                .method(method, method.equals("POST")
+                                        ? HttpRequest.BodyPublishers.ofString("")
+                                        : HttpRequest.BodyPublishers.noBody())
+                                .build(),
+                        HttpResponse.BodyHandlers.ofString());
+                assertEquals(405, rejected.statusCode());
+                assertEquals("GET", rejected.headers().firstValue("Allow").orElse(""));
+                if (!method.equals("HEAD")) {
+                    assertEquals("{\"error\":\"Use the GET method for this endpoint.\"}", rejected.body());
+                }
+                assertEquals("{\"totalRuns\":1,\"inProgress\":0,\"passed\":0,\"failed\":1}",
+                        get(server, "/api/stats").body());
+            }
+        }
+    }
+
+    @Test
     void servesDashboardAndHealthEndpoint() throws Exception {
         try (ExecutionService execution = new ExecutionService(Duration.ofMillis(20));
              DashboardServer server = new DashboardServer(0, execution)) {
