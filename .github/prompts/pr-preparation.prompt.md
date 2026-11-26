@@ -9,4 +9,4 @@ Follow [the PR preparation skill](../skills/pr-preparation/SKILL.md). Read the v
 
 Prepare the required Summary (2–3 sentences), Changes Made, Test Evidence, Known Limitations, and Reviewer Checklist in `target/pr-body.md`. Add a concise changelog entry following existing style. Do not invent test output, CI links, or a PR URL.
 
-If publishing was approved in the request, raise the PR with `python3 scripts/pr/raise_pr.py ... --approved` and report its real result. If it was not approved, stop with the PR prepared locally and say no PR was created.
+If publishing was approved in the request, raise the PR with `python3 scripts/pr/raise_pr.py ... --approved` and report its real result, including whether the PR got the `ai-generated` label (the script adds it). If it was not approved, stop with the PR prepared locally and say no PR was created.

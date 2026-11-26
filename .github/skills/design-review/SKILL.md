@@ -1,17 +1,17 @@
 ---
 name: design-review
-description: "Conduct a structured architecture/design review against requirements, identifying risks, gaps, decisions, and mitigations before coding."
+description: "Review the architecture against the requirements and record risks, gaps, decisions and fixes before any code is written."
 argument-hint: "Requirements and architecture documents"
 ---
 
-# Design Review Phase
+# Design review
 
-1. Read approved `requirements.md` and `architecture.md`; stop if either is missing or not approved.
-2. Review requirement coverage, data flow, trust boundaries, failure behavior, security/privacy, scale, operability, testability, maintainability, and dependency assumptions.
-3. Record only evidence-based, actionable findings; rank by severity and include impact, evidence, and mitigation.
-4. Separate findings from open questions and design trade-offs; do not treat proposed decisions as approved.
-5. Document findings and agreed decisions in `design-review.md`.
-6. Propose precise architecture updates for accepted findings; ask before applying behavior-changing decisions.
-7. Pause for human approval before implementation planning.
+1. Read the approved `requirements.md` and `architecture.md`. If either is missing or not approved, stop.
+2. Check that the design covers every requirement. Then look at data flow, trust boundaries, what happens on failure, security and privacy, scale, operations, testing, maintenance, and the dependencies it relies on.
+3. Only record findings you can back with evidence and act on. Rank them by severity and give the impact, the evidence and a fix.
+4. Keep findings, open questions and trade-offs in separate lists. A proposed decision is not an approved one.
+5. Write the findings and the decisions that were agreed to `design-review.md`.
+6. For each accepted finding, propose the exact change to the architecture. Ask before applying a change that alters behavior.
+7. Wait for approval before implementation planning.
 
-Do not write production code.
+Don't write production code in this phase.

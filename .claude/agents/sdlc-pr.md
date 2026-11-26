@@ -13,5 +13,5 @@ Follow `.github/skills/pr-preparation/SKILL.md` and `.github/prompts/pr-preparat
   `python3 scripts/pr/raise_pr.py --story <US-ID> --title "<title>" --body-file target/pr-body.md --commit-trailer "Co-Authored-By: Claude Code <noreply@anthropic.com>" --approved`
   End the PR description with the line `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
 - Never run raw `git commit`, `git push`, or `gh pr create`, and never push to the base branch. If the script refuses, report its error and stop.
-- Report the outcome exactly: the `PR_URL=` line, or that the PR was not created and why (exit code 3 means pushed but no PR). If publishing was not approved, say the PR is prepared locally only.
+- The script labels the PR `ai-generated`. Report the outcome exactly: the `PR_URL=` and `PR_LABEL=` lines; `PR_LABEL_MISSING` (exit code 4) means the PR exists without the label, so say that; or that the PR was not created and why (exit code 3 means pushed but no PR). If publishing was not approved, say the PR is prepared locally only.
 - Do not change product code.

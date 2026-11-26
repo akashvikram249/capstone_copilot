@@ -14,6 +14,10 @@ Take a user story from source through a verified implementation to an opened pul
 
 Read [SDLC-PIPELINE.md](../../SDLC-PIPELINE.md) for phase order, artifacts, and approval gates.
 
+## Story input
+
+The story may be pasted text or a path to a workspace file (`.txt`, `.md` or `.docx`, for example `stories/US-107.docx`). For a file path, run `python3 scripts/story/read_story.py <path>` in the terminal and use its output as the story text; show the user the first lines so a bad conversion is caught, and record the file path as the story source. If the script fails (missing file, unsupported type such as `.pdf` or `.doc`), report its exact message and stop. If the story has no story ID such as `US-107`, ask for one before Phase 1. Pass the full story text and ID to every specialist; they do not read the file themselves.
+
 ## Cycle
 
 1. **Requirements:** invoke Requirements Agent. Confirm story source, ask unresolved questions, and wait for user approval of `requirements.md`.
@@ -23,7 +27,17 @@ Read [SDLC-PIPELINE.md](../../SDLC-PIPELINE.md) for phase order, artifacts, and 
 5. **Implementation:** invoke Implementation Agent on approved, unblocked tasks. Implement only within the approved scope; report each task's tests and status.
 6. **Review:** invoke Code Review Agent read-only. Present findings. Obtain a decision on fixes; send approved fixes back to Implementation Agent, then re-review changed code.
 7. **Verification:** invoke Verification Agent. Show exact evidence and remaining gaps. Ask one combined question: "Accept this verification and authorize raising the PR?" This is the final approval gate.
-8. **PR preparation and publishing:** invoke PR Preparation Agent. If the user accepted and authorized in step 7, tell it publishing is approved so it raises the PR through `scripts/pr/raise_pr.py` without further prompts. If the user accepted verification but declined publishing, have it prepare materials only. Relay the PR URL, or the exact reason no PR was created.
+8. **PR preparation and publishing:** invoke PR Preparation Agent. If the user accepted and authorized in step 7, tell it publishing is approved so it raises the PR through `scripts/pr/raise_pr.py` without further prompts. If the user accepted verification but declined publishing, have it prepare materials only. Relay the PR URL and whether it carries the `ai-generated` label, or the exact reason no PR was created.
+
+## Retry after every stage
+
+When a specialist returns, check its work against that phase's stage check in [SDLC-PIPELINE.md](../../SDLC-PIPELINE.md) before you show it to the user or open a gate.
+
+- If the check passes, go on to the gate.
+- If the specialist errored, said it was blocked on something it could fix, or left its artifact missing or incomplete, call the same specialist again with the exact failure. Allow two retries per stage (three attempts in all) and tell the user in one line each time.
+- Don't retry for a missing user decision, a refusal by `raise_pr.py` (failed `mvn verify`, secret scan, not approved, behind `main`), or exit code 3. Report those and stop.
+- A change the user asks for at a gate is a revision and doesn't count as a retry.
+- After the last retry fails, stop, give the user each attempt's failure, and ask whether to try again, skip the stage, or abort. Don't start the next phase.
 
 ## Operating rules
 

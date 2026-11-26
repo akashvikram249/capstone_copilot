@@ -1,5 +1,12 @@
 # Changelog
 
+## SDLC hardening
+
+- Check each phase's output against a stage check and retry the phase up to twice before a gate opens; stop and ask the user after the last failure.
+- Label every pull request raised by `scripts/pr/raise_pr.py` as `ai-generated`; exit with code 4 if the PR exists but the label could not be applied.
+- Reword the phase skills in plainer language without changing their steps.
+- Let `/sdlc` and the SDLC Orchestrator read a story from a `.txt`, `.md` or `.docx` file through `scripts/story/read_story.py`.
+
 ## Claude Code SDLC agents
 
 - Add Claude Code subagents for each SDLC phase under `.claude/agents/` and an `/sdlc` orchestrator command under `.claude/skills/sdlc/`, reusing the existing phase skills and the guarded PR script.
