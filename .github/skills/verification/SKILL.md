@@ -1,17 +1,17 @@
 ---
 name: verification
-description: "Run appropriate unit/integration/build checks and verify acceptance criteria and final document/output quality using concrete evidence."
+description: "Run the tests and checks, then confirm each acceptance criterion with evidence from the run."
 argument-hint: "Acceptance criteria, changed files, and expected outputs"
 ---
 
-# Verification Phase
+# Verification
 
-1. Read the approved acceptance criteria, implementation diff, review findings, and documented commands.
-2. Select the smallest safe test/build commands that cover the change; inspect scripts before running unfamiliar or destructive commands.
-3. Run checks and report exact commands, counts, results, and material failures. Do not fabricate logs or claim unrun checks.
-4. Verify each criterion explicitly against behavior or its required output; compilation alone is not acceptance.
-5. Check generated documents for required sections, consistency, and stale content when applicable.
-6. Report limitations, untested paths, and known failures without hiding them.
-7. Present evidence and wait for human acceptance before PR preparation.
+1. Read the approved acceptance criteria, the diff, the review findings and the documented commands.
+2. Pick the smallest safe set of test and build commands that covers the change. Read any script you don't recognize, and any that might delete things, before running it.
+3. Run them. Report the exact commands, counts and results, and every real failure. Don't make up logs or claim a check you didn't run.
+4. Check each acceptance criterion against what the system does or the output it produces. A clean compile doesn't prove acceptance.
+5. If the change produces documents, check that the sections are there, that they agree with each other, and that nothing stale is left in them.
+6. Say what is untested and what still fails.
+7. Show the evidence and wait for the user to accept it before PR preparation.
 
-Do not alter product code or suppress failing tests.
+Don't change product code, and don't hide or skip a failing test.

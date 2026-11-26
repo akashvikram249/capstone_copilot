@@ -1,0 +1,14 @@
+US-XXX: Short title of the story
+
+As a <role>, I want <goal>, so that <benefit>.
+
+Decisions (already confirmed, no open questions):
+- <decision, with exact names, values and ranges>
+- <exact error message text, if any, in quotes>
+- <what is explicitly out of scope>
+
+Acceptance criteria:
+- AC-NN: <testable statement>
+- AC-NN: <testable statement>
+- AC-NN: Unit tests cover <cases>.
+- AC-NN: README documents <feature>.

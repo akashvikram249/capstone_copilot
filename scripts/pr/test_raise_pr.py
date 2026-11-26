@@ -2,6 +2,7 @@ import os
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 sys.path.insert(0, os.path.dirname(__file__))
 import raise_pr
@@ -59,6 +60,43 @@ class RaisePrTest(unittest.TestCase):
     def test_publish_requires_approval(self):
         with self.assertRaises(raise_pr.Fail):
             raise_pr.main(["--story", "US-1", "--title", "t", "--body-file", "x.md"])
+
+    def test_token_route_labels_the_pr(self):
+        calls = []
+
+        def fake_api(method, url, token, payload=None):
+            calls.append((method, url, payload))
+            return 201, {}
+
+        with mock.patch.object(raise_pr, "api_request", fake_api):
+            raise_pr.label_pr_with_token("o", "r", "https://github.com/o/r/pull/7", "tok")
+        self.assertEqual(calls[-1][1], "https://api.github.com/repos/o/r/issues/7/labels")
+        self.assertEqual(calls[-1][2], {"labels": ["ai-generated"]})
+
+    def test_token_route_reports_label_failure(self):
+        with mock.patch.object(raise_pr, "api_request", lambda *a, **k: (403, {"message": "denied"})):
+            with self.assertRaises(raise_pr.Fail):
+                raise_pr.label_pr_with_token("o", "r", "https://github.com/o/r/pull/7", "tok")
+
+    def test_gh_route_adds_label_to_pr(self):
+        ran = []
+
+        def fake_run(cmd, **kwargs):
+            ran.append(cmd)
+            return mock.Mock(returncode=0, stdout="", stderr="")
+
+        with mock.patch.object(raise_pr.subprocess, "run", fake_run):
+            raise_pr.label_pr_with_gh("https://github.com/o/r/pull/7")
+        self.assertIn(["gh", "pr", "edit", "https://github.com/o/r/pull/7", "--add-label", "ai-generated"], ran)
+
+    def test_open_pr_returns_label_error_without_losing_the_url(self):
+        with mock.patch.object(raise_pr.shutil, "which", return_value=None), \
+             mock.patch.dict(os.environ, {"GITHUB_TOKEN": "tok"}), \
+             mock.patch.object(raise_pr, "create_pr_with_token", return_value="https://github.com/o/r/pull/7"), \
+             mock.patch.object(raise_pr, "label_pr_with_token", side_effect=raise_pr.Fail("nope")):
+            url, error = raise_pr.open_pr("o", "r", "main", "b", "t", "f", "body")
+        self.assertEqual(url, "https://github.com/o/r/pull/7")
+        self.assertEqual(error, "nope")
 
 
 if __name__ == "__main__":

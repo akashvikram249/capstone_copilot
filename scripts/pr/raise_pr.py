@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """Verify, commit, push, and open a pull request for an approved SDLC story.
 
-Exit codes: 0 PR opened (or already open), 1 precondition/verification failure,
-3 branch pushed but no PR could be created (no gh CLI or token available).
+Every PR it opens or finds is labelled "ai-generated".
+
+Exit codes: 0 PR opened (or already open) and labelled, 1 precondition/verification failure,
+3 branch pushed but no PR could be created (no gh CLI or token available),
+4 PR opened but the ai-generated label could not be applied.
 """
 import argparse
 import json
@@ -32,6 +35,10 @@ SECRET_PATTERNS = [
 ]
 BLOCKED_FILE = re.compile(r"(^|/)(\.env(\..*)?|[^/]*\.(pem|key|p12|jks)|credentials(\.[^/]*)?)$")
 SAFE_SUFFIXES = (".example", ".sample", ".template")
+
+AI_LABEL = "ai-generated"
+AI_LABEL_COLOR = "7057ff"
+AI_LABEL_DESCRIPTION = "Pull request created with AI assistance"
 
 
 class Fail(Exception):
@@ -168,13 +175,46 @@ def create_pr_with_token(owner, repo, base, branch, title, body, token):
     raise Fail(f"GitHub API could not create the PR: {data.get('message', status)}")
 
 
+def label_pr_with_gh(url):
+    # Fails harmlessly when the label already exists.
+    subprocess.run(
+        ["gh", "label", "create", AI_LABEL, "--color", AI_LABEL_COLOR, "--description", AI_LABEL_DESCRIPTION],
+        capture_output=True, text=True,
+    )
+    edited = subprocess.run(["gh", "pr", "edit", url, "--add-label", AI_LABEL], capture_output=True, text=True)
+    if edited.returncode != 0:
+        raise Fail(f"gh pr edit could not add the '{AI_LABEL}' label: {edited.stderr.strip()}")
+
+
+def label_pr_with_token(owner, repo, url, token):
+    api = f"https://api.github.com/repos/{owner}/{repo}"
+    # 422 means the label already exists, which is fine.
+    api_request(
+        "POST", f"{api}/labels", token,
+        {"name": AI_LABEL, "color": AI_LABEL_COLOR, "description": AI_LABEL_DESCRIPTION},
+    )
+    number = url.rstrip("/").rsplit("/", 1)[-1]
+    status, data = api_request("POST", f"{api}/issues/{number}/labels", token, {"labels": [AI_LABEL]})
+    if status not in (200, 201):
+        raise Fail(f"GitHub API could not add the '{AI_LABEL}' label: {data.get('message', status)}")
+
+
 def open_pr(owner, repo, base, branch, title, body_file, body):
-    if shutil.which("gh") and subprocess.run(["gh", "auth", "status"], capture_output=True).returncode == 0:
-        return create_pr_with_gh(base, branch, title, body_file)
+    """Return (url, label_error); url is None when no PR route is available."""
     token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
-    if token:
-        return create_pr_with_token(owner, repo, base, branch, title, body, token)
-    return None
+    if shutil.which("gh") and subprocess.run(["gh", "auth", "status"], capture_output=True).returncode == 0:
+        url = create_pr_with_gh(base, branch, title, body_file)
+        label = lambda: label_pr_with_gh(url)
+    elif token:
+        url = create_pr_with_token(owner, repo, base, branch, title, body, token)
+        label = lambda: label_pr_with_token(owner, repo, url, token)
+    else:
+        return None, None
+    try:
+        label()
+    except Fail as err:
+        return url, str(err)
+    return url, None
 
 
 def main(argv=None):
@@ -217,6 +257,7 @@ def main(argv=None):
         print(f"[dry-run] repo={owner}/{repo} base={base} branch={branch} (current={current})")
         print(f"[dry-run] pending changes:\n{pending or '  (none)'}\n[dry-run] commits ahead of base: {ahead}")
         print(f"[dry-run] PR route: {'gh' if has_gh else 'token' if has_token else 'compare URL only'}")
+        print(f"[dry-run] PR label: {AI_LABEL}")
         return 0
 
     run_verification()
@@ -233,9 +274,14 @@ def main(argv=None):
         git("commit", *[part for text in message for part in ("-m", text)])
     git("push", "-u", "origin", branch)
 
-    url = open_pr(owner, repo, base, branch, args.title, args.body_file, body)
+    url, label_error = open_pr(owner, repo, base, branch, args.title, args.body_file, body)
     if url:
         print(f"PR_URL={url}")
+        if label_error:
+            print(f"PR_LABEL_MISSING: {label_error}")
+            print(f"Add the '{AI_LABEL}' label to the PR manually.")
+            return 4
+        print(f"PR_LABEL={AI_LABEL}")
         return 0
     print(f"BRANCH_PUSHED={branch}")
     print("PR NOT CREATED: no authenticated gh CLI and no GITHUB_TOKEN/GH_TOKEN.")
